@@ -1,5 +1,63 @@
-// Mercately — Changelog page app (zig-zag timeline, collapsible cards)
+// Mercately — Changelog page app (self-contained, no external deps)
 const { useState: useStateCL, useMemo: useMemoCL, useEffect: useEffectCL } = React;
+
+// ── Inline icons (subset needed by this page) ──────────────────────────────
+const Icon = ({ name, size = 18, style: extraStyle, ...rest }) => {
+  const s = { width: size, height: size, display: 'inline-block', verticalAlign: 'middle', ...extraStyle };
+  const st = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  switch (name) {
+    case 'check':    return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M20 6L9 17l-5-5"/></svg>;
+    case 'plus':     return <svg viewBox="0 0 24 24" style={s} {...st} strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>;
+    case 'chev':     return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M6 9l6 6 6-6"/></svg>;
+    case 'arrow-r':  return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M5 12h14M13 5l7 7-7 7"/></svg>;
+    case 'x':        return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M6 6l12 12M18 6L6 18"/></svg>;
+    case 'link':     return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1-1"/></svg>;
+    case 'rocket':   return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M4.5 16.5c-1.5 1-2 5-2 5s4-.5 5-2c.6-.85.6-2.15-.1-2.85a2 2 0 0 0-2.9.85zM12 15l-3-3 8.5-8.5a3.54 3.54 0 0 1 5 5L14 17z"/><path d="M9 12l-4 1 1-4 3 3z"/></svg>;
+    case 'spark':    return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></svg>;
+    case 'phone':    return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
+    case 'video':    return <svg viewBox="0 0 24 24" style={s} {...st}><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>;
+    case 'mail':     return <svg viewBox="0 0 24 24" style={s} {...st}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>;
+    case 'globe':    return <svg viewBox="0 0 24 24" style={s} {...st}><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>;
+    case 'qr':       return <svg viewBox="0 0 24 24" style={s} {...st}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M21 14v3M14 21h3M21 21v-3"/></svg>;
+    case 'twitter':  return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53A4.48 4.48 0 0 0 12 8.5a12.94 12.94 0 0 1-9.4-4.77A4.48 4.48 0 0 0 4 9.71 4.46 4.46 0 0 1 2 9v.05A4.5 4.5 0 0 0 5.6 13.4 4.5 4.5 0 0 1 3 13.5 4.5 4.5 0 0 0 7.2 16.6 9 9 0 0 1 1 18.5 12.7 12.7 0 0 0 8 20.5c8.4 0 13-7 13-13v-.6A9.4 9.4 0 0 0 23 3z"/></svg>;
+    case 'linkedin': return <svg viewBox="0 0 24 24" style={s} {...st}><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>;
+    default: return null;
+  }
+};
+
+// ── Standalone Header ──────────────────────────────────────────────────────
+function Header() {
+  return (
+    <header className="nav">
+      <div className="container nav-inner">
+        <a href="https://www.mercately.com/" className="nav-logo">
+          <span className="nav-logo-dot"></span>Mercately
+        </a>
+        <nav className="nav-links">
+          <a href="https://www.mercately.com/#productos">Productos</a>
+          <a href="https://www.mercately.com/precios">Precios</a>
+          <a href="https://www.mercately.com/partners">Partners</a>
+          <a href="https://monoga2025.github.io/mercately-changelog/" style={{color:'#fff',fontWeight:600}}>Changelog</a>
+        </nav>
+        <a href="https://app.mercately.com/register" className="nav-cta">
+          Crear cuenta gratis
+        </a>
+      </div>
+    </header>
+  );
+}
+
+// ── Standalone Footer ──────────────────────────────────────────────────────
+function Footer() {
+  return (
+    <footer className="cl-footer">
+      <span>© {new Date().getFullYear()} Mercately — </span>
+      <a href="https://www.mercately.com/">mercately.com</a>
+      <a href="https://www.mercately.com/terminos">Términos</a>
+      <a href="https://www.mercately.com/privacidad">Privacidad</a>
+    </footer>
+  );
+}
 
 const FILTERS = [
   { id: "all",         label: "Todo",        cls: "" },
