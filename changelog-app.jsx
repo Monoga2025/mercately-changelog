@@ -1,7 +1,7 @@
-// Mercately — Changelog (data + app, fusionado en un solo archivo)
+// Mercately — Changelog (data se carga desde changelog.json en runtime)
 
-// ── Data ──────────────────────────────────────────────────────────────────
-const CHANGELOG = [
+// ── Data fallback (solo si falla el fetch) ────────────────────────────────
+const CHANGELOG_FALLBACK = [
   {
     id: "v3-9-0", version: "v3.9.0", date: "20 May 2026", dateISO: "2026-05-20",
     featured: true, tags: ["new", "api"],
@@ -478,6 +478,14 @@ function ChangelogApp() {
   const [filter, setFilter] = useStateCL('all');
   const [query, setQuery]   = useStateCL('');
   const [openId, setOpenId] = useStateCL(null);
+  const [CHANGELOG, setChangelog] = useStateCL(CHANGELOG_FALLBACK);
+
+  useEffectCL(() => {
+    fetch('changelog.json?_=' + Date.now())
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(data => { if (Array.isArray(data) && data.length) setChangelog(data); })
+      .catch(err => console.warn('changelog.json fetch failed, usando fallback', err));
+  }, []);
 
   const filtered = useMemoCL(() => {
     const q = query.trim().toLowerCase();
@@ -490,19 +498,19 @@ function ChangelogApp() {
         (e.points || []).some(p => (p.b + ' ' + p.t).toLowerCase().includes(q));
       return tagMatch && qMatch;
     });
-  }, [filter, query]);
+  }, [filter, query, CHANGELOG]);
 
   const counts = useMemoCL(() => {
     const c = { all: CHANGELOG.length };
     CHANGELOG.forEach(e => e.tags.forEach(t => { c[t] = (c[t] || 0) + 1; }));
     return c;
-  }, []);
+  }, [CHANGELOG]);
 
   // Open by hash on load (#v3-9-0 deep links to that article)
   useEffectCL(() => {
     const h = window.location.hash.replace('#', '');
     if (h && CHANGELOG.some(e => e.id === h)) setOpenId(h);
-  }, []);
+  }, [CHANGELOG]);
 
   // Article navigation traverses ALL entries (not just filtered)
   const openEntry = CHANGELOG.find(e => e.id === openId) || null;
@@ -540,7 +548,6 @@ function ChangelogApp() {
 
   return (
     <>
-      <Header />
       <ChangelogHero />
       <Toolbar filter={filter} setFilter={setFilter} query={query} setQuery={setQuery} counts={counts} />
       <main className="cl-main">
@@ -576,7 +583,6 @@ function ChangelogApp() {
           <RoadmapTeaser />
         </div>
       </main>
-      <Footer />
       <ArticleOverlay
         entry={openEntry}
         prev={prevEntry}
