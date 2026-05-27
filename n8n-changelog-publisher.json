@@ -1,0 +1,148 @@
+{
+  "name": "Mercately Changelog Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Publicar entrada · Changelog Mercately",
+        "formDescription": "Solo para desarrolladores. La entrada se publica automáticamente en GitHub Pages.",
+        "formFields": {
+          "values": [
+            { "fieldLabel": "Contraseña dev", "fieldType": "password", "requiredField": true },
+            { "fieldLabel": "Versión (ej: v3.9.1)", "fieldType": "text", "requiredField": true, "placeholder": "v3.9.1" },
+            { "fieldLabel": "Fecha", "fieldType": "date", "requiredField": true },
+            { "fieldLabel": "Tipo principal", "fieldType": "dropdown", "requiredField": true, "fieldOptions": { "values": [
+              { "option": "new" }, { "option": "improvement" }, { "option": "fix" }, { "option": "api" }, { "option": "mobile" }
+            ]}},
+            { "fieldLabel": "Tipo secundario (opcional)", "fieldType": "dropdown", "requiredField": false, "fieldOptions": { "values": [
+              { "option": "" }, { "option": "new" }, { "option": "improvement" }, { "option": "fix" }, { "option": "api" }, { "option": "mobile" }
+            ]}},
+            { "fieldLabel": "Título", "fieldType": "text", "requiredField": true, "placeholder": "MIA 2.0 — Agente IA con base de conocimiento propia" },
+            { "fieldLabel": "Lede (resumen 1-2 frases)", "fieldType": "textarea", "requiredField": true },
+            { "fieldLabel": "Puntos (uno por línea, formato: Título: descripción)", "fieldType": "textarea", "requiredField": true, "placeholder": "Entrenamiento en 1 clic: Sube documentos y MIA arma su contexto.\nHandoff inteligente: Detecta intención y asigna al agente correcto." },
+            { "fieldLabel": "Autor (nombre)", "fieldType": "text", "requiredField": true, "placeholder": "Equipo Producto" },
+            { "fieldLabel": "Iniciales autor (2 letras)", "fieldType": "text", "requiredField": true, "placeholder": "EP" },
+            { "fieldLabel": "Tiempo de lectura", "fieldType": "text", "requiredField": false, "placeholder": "3 min" },
+            { "fieldLabel": "¿Destacar como featured?", "fieldType": "dropdown", "requiredField": true, "fieldOptions": { "values": [
+              { "option": "no" }, { "option": "sí" }
+            ]}}
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "form-trigger",
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [200, 300],
+      "webhookId": "mercately-changelog-publisher"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json['Contraseña dev'] }}",
+              "rightValue": "={{ $env.DEV_PASSWORD }}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-password",
+      "name": "¿Password ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "❌ Contraseña incorrecta",
+        "completionMessage": "Pídele al lead de Producto el password actual y vuelve a intentar.",
+        "options": {}
+      },
+      "id": "respond-401",
+      "name": "Form ending: 401",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [680, 460],
+      "webhookId": "merc-changelog-401"
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/Monoga2025/mercately-changelog/contents/changelog.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [ { "name": "ref", "value": "main" } ] },
+        "options": {}
+      },
+      "id": "github-get",
+      "name": "GET changelog.json",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 240],
+      "credentials": { "githubApi": { "id": "REEMPLAZAR_ID", "name": "GitHub Monoga2025" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construir nueva entry y preparar payload para PUT\nconst form = $('Form Trigger').first().json;\nconst fileResp = $input.first().json;\n\nconst current = JSON.parse(\n  Buffer.from(fileResp.content, 'base64').toString('utf-8')\n);\n\n// Construir entry\nconst version = String(form['Versión (ej: v3.9.1)']).trim();\nconst id = version.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase().replace(/^-|-$/g, '');\nconst dateISO = form['Fecha']; // YYYY-MM-DD\nconst d = new Date(dateISO);\nconst MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];\nconst MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];\nconst date = `${String(d.getUTCDate()).padStart(2,'0')} ${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;\nconst month = `${MESES_LARGO[d.getUTCMonth()]} ${d.getUTCFullYear()}`;\n\nconst tags = [form['Tipo principal']];\nconst t2 = form['Tipo secundario (opcional)'];\nif (t2 && t2 !== form['Tipo principal']) tags.push(t2);\n\nconst points = String(form['Puntos (uno por línea, formato: Título: descripción)'])\n  .split(/\\r?\\n/)\n  .map(l => l.trim())\n  .filter(Boolean)\n  .map(line => {\n    const idx = line.indexOf(':');\n    if (idx === -1) return { b: line, t: '' };\n    return { b: line.slice(0, idx).trim(), t: line.slice(idx+1).trim() };\n  });\n\nconst entry = {\n  id,\n  version,\n  date,\n  dateISO,\n  month,\n  featured: form['¿Destacar como featured?'] === 'sí',\n  tags,\n  title: form['Título'],\n  lede: form['Lede (resumen 1-2 frases)'],\n  media: { kind: 'screenshot', label: form['Título'] },\n  points,\n  author: {\n    name: form['Autor (nombre)'],\n    initials: String(form['Iniciales autor (2 letras)']).toUpperCase().slice(0,2)\n  },\n  readTime: form['Tiempo de lectura'] || '3 min'\n};\n\n// Si ya existe el id, lo reemplazamos; si no, lo añadimos al principio\nconst existingIdx = current.findIndex(e => e.id === entry.id);\nlet updated;\nif (existingIdx >= 0) {\n  updated = [...current];\n  updated[existingIdx] = entry;\n} else {\n  updated = [entry, ...current];\n}\n\nconst newContent = JSON.stringify(updated, null, 2) + '\\n';\nconst newBase64 = Buffer.from(newContent, 'utf-8').toString('base64');\n\nreturn [{ json: {\n  sha: fileResp.sha,\n  content: newBase64,\n  message: `changelog: ${existingIdx >= 0 ? 'update' : 'publish'} ${version} — ${entry.title}`,\n  entryId: entry.id,\n  isUpdate: existingIdx >= 0\n}}];"
+      },
+      "id": "build-payload",
+      "name": "Build PUT payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 240]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "https://api.github.com/repos/Monoga2025/mercately-changelog/contents/changelog.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.message, content: $json.content, sha: $json.sha, branch: 'main' }) }}",
+        "options": {}
+      },
+      "id": "github-put",
+      "name": "PUT changelog.json",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 240],
+      "credentials": { "githubApi": { "id": "REEMPLAZAR_ID", "name": "GitHub Monoga2025" } }
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "✅ Publicado",
+        "completionMessage": "=La entrada aparecerá en https://monoga2025.github.io/mercately-changelog/ en 1–2 minutos (cuando GitHub Pages termine el deploy).\n\nID: {{ $('Build PUT payload').first().json.entryId }}\nCommit: {{ $json.commit.sha.slice(0,7) }}",
+        "options": {}
+      },
+      "id": "respond-ok",
+      "name": "Form ending: OK",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [1340, 240],
+      "webhookId": "merc-changelog-ok"
+    }
+  ],
+  "connections": {
+    "Form Trigger": { "main": [[{ "node": "¿Password ok?", "type": "main", "index": 0 }]] },
+    "¿Password ok?": {
+      "main": [
+        [{ "node": "GET changelog.json", "type": "main", "index": 0 }],
+        [{ "node": "Form ending: 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "GET changelog.json": { "main": [[{ "node": "Build PUT payload", "type": "main", "index": 0 }]] },
+    "Build PUT payload": { "main": [[{ "node": "PUT changelog.json", "type": "main", "index": 0 }]] },
+    "PUT changelog.json": { "main": [[{ "node": "Form ending: OK", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

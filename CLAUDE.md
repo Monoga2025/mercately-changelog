@@ -72,6 +72,10 @@ El campo `media: { kind, label }` existe en las entradas pero el render del plac
 
 ## Cambios recientes
 
+### 2026-05-27 (tarde) — Audit y fixes
+- Añadido icono `search` (faltaba el `case` en el switch → la lupa del buscador renderizaba vacía).
+- Quitado el botón "Ir al roadmap completo" (no existe `mercately.com/roadmap`, devolvía 404). Reactivar cuando exista la URL.
+
 ### 2026-05-27 — Limpieza visual
 - Añadidas variables CSS `--brand-50/100/200/300/700`, `--bg-blue`, `--ink-700` (faltaban → línea del timeline no renderizaba).
 - Toolbar de búsqueda+filtros pasó de `sticky` translúcido a `static` sólido.
