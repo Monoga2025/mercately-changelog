@@ -212,22 +212,7 @@ function ChangelogHero() {
             Toca cualquier release para ver el detalle. Suscríbete para enterarte antes que el resto del equipo.
           </p>
         </div>
-        <div className="cl-subscribe">
-          <h4>
-            <span className="sigil"><Icon name="mail" size={13} /></span>
-            Recibe el changelog
-          </h4>
-          <p>Un correo mensual con los releases más importantes. Sin spam.</p>
-          <form className="cl-sub-form" onSubmit={(e) => { e.preventDefault(); alert('¡Suscrito! (demo)'); }}>
-            <input type="email" placeholder="tu@empresa.com" required />
-            <button type="submit">Suscribirme</button>
-          </form>
-          <div className="cl-sub-extras">
-            <a href="#rss"><Icon name="globe" size={13} /> RSS</a>
-            <a href="#twitter"><Icon name="twitter" size={13} /> Twitter</a>
-            <a href="#roadmap"><Icon name="rocket" size={13} /> Roadmap público</a>
-          </div>
-        </div>
+        {/* Bloque "Recibe el changelog" movido a secciones borradores/cl-subscribe.jsx */}
       </div>
     </section>
   );
