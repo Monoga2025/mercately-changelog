@@ -379,7 +379,7 @@ function ArticleOverlay({ entry, prev, next, onClose, onNav }) {
         </header>
 
         <div className="article-body">
-          {e.media && <MediaPlaceholder kind={e.media.kind} label={e.media.label} />}
+          {/* Screenshot desactivado — ver CLAUDE.md sección "Subir screenshots" */}
 
           {e.points && e.points.length > 0 && (
             <>
@@ -404,11 +404,6 @@ function ArticleOverlay({ entry, prev, next, onClose, onNav }) {
             <div className="who">
               <b>{e.author.name}</b>
               <span>Publicado el {e.date}</span>
-            </div>
-            <div className="share">
-              <button title="Copiar enlace"><Icon name="link" size={14} /></button>
-              <button title="Compartir en X"><Icon name="twitter" size={14} /></button>
-              <button title="Compartir en LinkedIn"><Icon name="linkedin" size={14} /></button>
             </div>
           </div>
         </div>
